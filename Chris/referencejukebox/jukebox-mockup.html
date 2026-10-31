@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Album Jukebox – mockup</title>
+<style>
+  :root {
+    --bg: #f7f3ec;
+    --ink: #24212b;
+    --muted: #6d6875;
+    --panel: #fffdf8;
+    --line: #e6dfd3;
+    --coral: #ff6b5b;
+    --coral-dark: #c94032;
+    --mint: #3cc8b4;
+    --amber: #ffc145;
+    --lamp-off: #e6e0d6;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  button, input { font: inherit; color: inherit; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  :focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
+
+  .app-head { max-width: 1100px; margin: 0 auto; padding: 20px 16px 12px; }
+  .app-head h1 { margin: 0; font-size: 1.5rem; letter-spacing: -.01em; }
+  .app-head p { margin: 2px 0 0; color: var(--muted); }
+
+  .layout {
+    display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr);
+    max-width: 1100px; margin: 0 auto; padding: 0 16px 48px;
+  }
+
+  /* Jukebox body */
+  .jukebox {
+    --cabinet-mint: #91e6d5;
+    --cabinet-coral: #ff9a83;
+    --cabinet-yellow: #fff29a;
+    position: relative; isolation: isolate;
+    background: var(--cabinet-coral);
+    border: 2px solid #394651;
+    border-radius: 220px 220px 24px 24px;
+    padding: 132px 28px 22px;
+    box-shadow: 7px 8px 0 #d9c8d6, inset -8px 0 0 #df7c79;
+  }
+  .jukebox::before {
+    content: ""; position: absolute; inset: 9px; z-index: -1;
+    border: 9px solid var(--cabinet-mint); border-radius: inherit;
+    box-shadow: 0 0 0 2px #394651, inset 0 0 0 2px #394651,
+      inset 0 0 0 8px var(--cabinet-yellow), inset 0 0 0 10px #394651;
+    pointer-events: none;
+  }
+  /* Decorative bulbs follow the crown; functional filter lamps remain below. */
+  .arch-lights {
+    position: absolute; top: 24px; left: 30px; right: 30px; height: 92px;
+    pointer-events: none;
+  }
+  .arch-lights span {
+    position: absolute; left: var(--x); top: var(--y);
+    width: 10px; height: 19px; border: 1px solid #394651; border-radius: 6px;
+    background: var(--cabinet-mint);
+    transform: translateX(-50%) rotate(var(--tilt));
+    box-shadow: inset 2px 2px 0 #ffffff70, 0 0 0 3px #626878;
+  }
+  .arch-lights span:nth-child(3n + 2) { background: var(--cabinet-yellow); }
+  .arch-lights span:nth-child(3n) { background: var(--cabinet-coral); }
+  .arch-lights span:nth-child(1) { --x: 4%; --y: 85%; --tilt: -65deg; }
+  .arch-lights span:nth-child(2) { --x: 9%; --y: 62%; --tilt: -55deg; }
+  .arch-lights span:nth-child(3) { --x: 16%; --y: 40%; --tilt: -45deg; }
+  .arch-lights span:nth-child(4) { --x: 24%; --y: 22%; --tilt: -35deg; }
+  .arch-lights span:nth-child(5) { --x: 32%; --y: 10%; --tilt: -25deg; }
+  .arch-lights span:nth-child(6) { --x: 41%; --y: 2%; --tilt: -12deg; }
+  .arch-lights span:nth-child(7) { --x: 50%; --y: 0%; --tilt: 0deg; }
+  .arch-lights span:nth-child(8) { --x: 59%; --y: 2%; --tilt: 12deg; }
+  .arch-lights span:nth-child(9) { --x: 68%; --y: 10%; --tilt: 25deg; }
+  .arch-lights span:nth-child(10) { --x: 76%; --y: 22%; --tilt: 35deg; }
+  .arch-lights span:nth-child(11) { --x: 84%; --y: 40%; --tilt: 45deg; }
+  .arch-lights span:nth-child(12) { --x: 91%; --y: 62%; --tilt: 55deg; }
+  .arch-lights span:nth-child(13) { --x: 96%; --y: 85%; --tilt: 65deg; }
+  .speaker-grille {
+    height: 100px; margin-top: 14px; border: 5px solid #c9d8c8;
+    border-radius: 50% 50% 10px 10px / 22% 22% 10px 10px;
+    outline: 2px solid #394651;
+    background: repeating-linear-gradient(90deg, transparent 0 6px, #394651 6px 8px),
+      radial-gradient(ellipse at 50% 100%, #f6cf96 0 24%, #75688f 25% 52%, #9b8cb5 53%);
+    box-shadow: inset 0 0 0 2px #394651;
+  }
+  .marquee {
+    position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+    width: 56%; margin: 0; padding: 9px 5px;
+    background: var(--cabinet-coral);
+    border: 2px solid #394651; border-radius: 50% 50% 10px 10px;
+    box-shadow: 0 0 0 4px var(--cabinet-mint), 0 0 0 6px #394651;
+    text-align: center;
+    color: #394651;
+    font-weight: 800;
+    letter-spacing: .3em;
+    font-size: 1.05rem;
+  }
+  .lights {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+    margin: 14px 0 0; padding: 8px;
+    background: #c8dfd7; border: 2px solid #394651; border-radius: 10px;
+    box-shadow: inset 0 0 0 3px #e9eee2, 3px 3px 0 #b16d78;
+  }
+  .light {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0;
+    min-height: 44px; padding: 4px 1px; border: 2px solid #9faeaa; border-radius: 5px;
+    background: #fff9e9; cursor: pointer; font-size: .75rem; font-weight: 600; line-height: 1.1;
+    text-transform: uppercase; letter-spacing: 0; color: var(--muted);
+  }
+  .light-text { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lamp {
+    flex: none; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--lamp-off); transition: background .2s, box-shadow .2s;
+  }
+  .light.on { border-color: var(--amber); color: var(--ink); }
+  .light.on .lamp { background: var(--amber); box-shadow: 0 0 0 3px rgba(255, 193, 69, .35), 0 0 10px var(--amber); }
+
+  .counter {
+    margin: 10px 0 0; padding: 6px; text-align: center; font-size: .95rem;
+    background: #fff5d9; border: 2px solid #687875; border-radius: 6px;
+  }
+  .counter strong { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+  .pool-note { color: var(--muted); }
+
+  .stage {
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column;
+    background: linear-gradient(128deg, #ffffff35 0 15%, transparent 15% 34%, #ffffff15 34% 43%, transparent 43%),
+      linear-gradient(#8d81a8 0 60%, #baa5bd);
+    border: 0; border-radius: 12px;
+    box-shadow: inset 0 0 0 2px #394651, inset 0 0 0 7px #cbd9c7;
+  }
+  .stage::before {
+    content: ""; position: absolute; left: 10px; right: 10px; top: 0; height: 6px;
+    background: var(--ink); border-radius: 0 0 4px 4px; z-index: 6;
+  }
+  .rack {
+    display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px;
+    margin: 0 10px 10px; padding: 10px;
+    background: repeating-linear-gradient(#fff5d9 0 20px, #ebc8af 20px 21px);
+    border: 2px solid #56666b; border-radius: 5px;
+    box-shadow: 0 0 0 3px #a8d7ca;
+  }
+  .rec {
+    aspect-ratio: 1; border-radius: 4px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, .15);
+    transition: opacity .3s, transform .3s, filter .3s, box-shadow .3s;
+  }
+  .rec.outpool { opacity: .5; }
+  .rec.dim { opacity: .15; transform: scale(.6); filter: grayscale(1); }
+  .rec.current { box-shadow: 0 0 0 2px var(--mint); }
+  .rec.chosen { transform: scale(1.18); box-shadow: 0 0 0 3px var(--amber); opacity: 1; filter: none; }
+  .rec.taken { opacity: 0; }
+
+  .turntable {
+    order: -1;
+    position: relative; width: min(230px, 72%); aspect-ratio: 1.3;
+    margin: 38px auto 18px; background: #efb6a4; border: 2px solid #394651;
+    border-radius: 14px; box-shadow: 4px 5px 0 #615775;
+  }
+  .platter {
+    position: absolute; left: 7%; top: 50%; width: 64%; aspect-ratio: 1;
+    transform: translateY(-50%); border-radius: 50%; background: #b6d8cb;
+    border: 2px solid var(--ink);
+  }
+  .vinyl {
+    position: absolute; inset: 4%; border-radius: 50%;
+    background: repeating-radial-gradient(circle, #1d1b22 0 2px, #2c2933 2px 4px);
+    opacity: 0; transition: opacity .2s;
+  }
+  .vinyl.loaded { opacity: 1; }
+  .vinyl.spinning { animation: spin 1.4s cubic-bezier(.2, .6, .3, 1); }
+  @keyframes spin { from { transform: rotate(0); } to { transform: rotate(1080deg); } }
+  .vinyl-label, .flyer-label {
+    position: absolute; inset: 32%; border-radius: 50%;
+    display: grid; place-items: center; overflow: hidden;
+    color: #fff; font-weight: 800; font-size: .7rem; text-shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  }
+  .vinyl-label::after, .flyer-label::after {
+    content: ""; position: absolute; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ink); left: calc(50% - 3px); top: calc(50% - 3px);
+  }
+  .vinyl-label span { transform: translateY(-9px); }
+  .tonearm {
+    position: absolute; right: 9%; top: 10%; width: 6px; height: 62%;
+    background: var(--ink); border-radius: 3px;
+    transform-origin: 50% 0; transform: rotate(0deg); transition: transform .5s ease;
+  }
+  .tonearm::before {
+    content: ""; position: absolute; top: -6px; left: -6px; width: 18px; height: 18px;
+    border-radius: 50%; background: var(--coral); border: 2px solid var(--ink);
+  }
+  .tonearm::after {
+    content: ""; position: absolute; bottom: -4px; left: -4px; width: 14px; height: 10px;
+    border-radius: 2px; background: var(--ink);
+  }
+  .tonearm.on { transform: rotate(24deg); }
+
+  .claw {
+    position: absolute; left: 0; top: 0; width: 36px; height: 30px;
+    z-index: 5; pointer-events: none;
+  }
+  .claw::before {
+    content: ""; position: absolute; left: 50%; bottom: 100%; margin-left: -2px;
+    width: 4px; height: 1200px; background: var(--ink);
+  }
+  .claw-head {
+    position: absolute; left: 4px; right: 4px; top: 0; height: 10px;
+    background: var(--coral); border: 2px solid var(--ink); border-radius: 4px;
+  }
+  .finger {
+    position: absolute; top: 8px; width: 5px; height: 20px; background: var(--ink);
+    border-radius: 0 0 3px 3px; transition: transform .15s;
+  }
+  .finger.l { left: 5px; transform-origin: 50% 0; transform: rotate(18deg); }
+  .finger.r { right: 5px; transform-origin: 50% 0; transform: rotate(-18deg); }
+  .claw.closed .finger.l { transform: rotate(-6deg); }
+  .claw.closed .finger.r { transform: rotate(6deg); }
+
+  .flyer {
+    position: absolute; left: 0; top: 0; border-radius: 50%; z-index: 4;
+    background: repeating-radial-gradient(circle, #1d1b22 0 2px, #2c2933 2px 4px);
+    transform-origin: 50% 50%;
+  }
+
+  .empty {
+    margin: 12px 0 0; padding: 12px; border-radius: 12px; text-align: center;
+    background: #fff2ef; border: 2px dashed var(--coral);
+  }
+  .empty p { margin: 0 0 8px; }
+
+  .modes {
+    border: 2px solid #687875; border-radius: 8px; padding: 8px; margin: 14px 0 12px;
+    background: #d5e3d8;
+  }
+  .modes legend { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
+  .seg { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .seg label { position: relative; }
+  .seg input { position: absolute; opacity: 0; inset: 0; margin: 0; }
+  .seg span {
+    display: block; text-align: center; padding: 8px 6px; border-radius: 10px;
+    border: 2px solid var(--line); background: #fff; font-size: .85rem; font-weight: 600; cursor: pointer;
+  }
+  .seg input:checked + span { background: #4a5266; border-color: var(--ink); color: #fff; }
+  .seg input:focus-visible + span { outline: 3px solid var(--mint); outline-offset: 2px; }
+  .jukebox :focus-visible, .jukebox .seg input:focus-visible + span { outline-color: #514367; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 44px; padding: 10px 18px; border-radius: 999px; border: 2px solid var(--ink);
+    font-weight: 700; text-decoration: none; cursor: pointer; background: #fff;
+  }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .dip {
+    width: 100%; font-size: 1.15rem; letter-spacing: .02em;
+    background: var(--cabinet-yellow); color: var(--ink); border-color: var(--ink);
+    box-shadow: 0 4px 0 var(--ink);
+  }
+  .dip:not(:disabled):active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+  .dip-hint { margin: 10px 0 0; text-align: center; color: var(--muted); font-size: .85rem; min-height: 1.2em; }
+
+  /* Result card */
+  .card {
+    background: var(--panel); border: 3px solid var(--ink); border-radius: var(--radius);
+    padding: 16px; transition: opacity .3s, transform .3s;
+  }
+  .card.is-pending { opacity: .25; transform: translateY(6px); pointer-events: none; }
+  .card-tag {
+    display: inline-block; margin: 0 0 12px; padding: 3px 10px; border-radius: 999px;
+    background: var(--amber); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  }
+  .card-body { display: flex; gap: 14px; align-items: flex-start; }
+  .cover {
+    flex: none; width: 120px; aspect-ratio: 1; border-radius: 8px; border: 2px solid var(--ink);
+    display: grid; place-items: center; color: #fff; font-size: 2rem; font-weight: 800;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, .35);
+  }
+  .card-info { min-width: 0; }
+  .card-info h2 { margin: 0; font-size: 1.2rem; line-height: 1.2; overflow-wrap: anywhere; }
+  .card-info h2:focus { outline: none; }
+  .card-artist { margin: 2px 0 10px; color: var(--muted); font-weight: 600; }
+  .meta { display: grid; gap: 4px; margin: 0; font-size: .88rem; }
+  .meta div { display: flex; gap: 6px; }
+  .meta dt { color: var(--muted); min-width: 78px; }
+  .meta dd { margin: 0; font-weight: 600; }
+  .card-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+  .btn-spotify { background: var(--mint); }
+  .roll-msg { margin: 10px 0 0; font-size: .88rem; color: var(--muted); min-height: 1.3em; }
+  .roll-msg.out { color: var(--coral-dark); font-weight: 700; }
+
+  /* Filters */
+  .filters { background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius); padding: 16px; }
+  .filters-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .filters-head h2 { margin: 0; font-size: 1.1rem; }
+  .link-btn { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; background: none; border: 0; padding: 6px 10px; color: var(--coral-dark); font-weight: 700; cursor: pointer; text-decoration: underline; }
+  details.group { border-top: 1px solid var(--line); padding: 4px 0; }
+  details.group summary {
+    cursor: pointer; padding: 8px 0; font-weight: 700; display: flex; align-items: center; gap: 8px;
+    list-style: none;
+  }
+  details.group summary::-webkit-details-marker { display: none; }
+  details.group summary::after { content: "+"; margin-left: auto; color: var(--muted); }
+  details.group[open] summary::after { content: "–"; }
+  .group-count { font-size: .75rem; background: var(--amber); border-radius: 999px; padding: 0 7px; }
+  .group-count:empty { display: none; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 0 10px; }
+  .chip {
+    min-height: 36px; padding: 6px 12px; border-radius: 999px; border: 2px solid var(--line);
+    background: #fff; font-size: .85rem; cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .text-filter { width: 100%; min-height: 44px; padding: 8px 12px; margin: 2px 0 10px; border: 2px solid var(--line); border-radius: 10px; background: #fff; }
+
+  @media (min-width: 600px) {
+    .rack { grid-template-columns: repeat(10, 1fr); }
+    .seg { grid-template-columns: repeat(4, 1fr); }
+    .cover { width: 150px; }
+  }
+  @media (min-width: 880px) {
+    .layout {
+      grid-template-columns: minmax(360px, 440px) minmax(0, 1fr);
+      grid-template-areas: "box card" "box filters";
+      align-items: start;
+    }
+    .jukebox { grid-area: box; position: sticky; top: 16px; }
+    .card { grid-area: card; }
+    .filters { grid-area: filters; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+<header class="app-head">
+  <h1>Album Jukebox</h1>
+  <p>Whole albums from your favourites. No algorithm.</p>
+</header>
+
+<main class="layout">
+  <section class="jukebox" aria-label="Jukebox">
+    <div class="arch-lights" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="marquee" aria-hidden="true">JUKEBOX</div>
+
+    <div class="stage" id="stage">
+      <div class="rack" id="rack" aria-hidden="true"></div>
+      <div class="turntable" aria-hidden="true">
+        <div class="platter" id="platter">
+          <div class="vinyl" id="vinyl"><div class="vinyl-label" id="vinylLabel"><span></span></div></div>
+        </div>
+        <div class="tonearm" id="tonearm"></div>
+      </div>
+      <div class="claw" id="claw" aria-hidden="true">
+        <span class="claw-head"></span><span class="finger l"></span><span class="finger r"></span>
+      </div>
+    </div>
+
+    <div class="lights" id="lights" role="group" aria-label="Filter selectors"></div>
+
+    <p class="counter">
+      <strong id="count">0</strong> <span id="countLabel">records</span>
+      <span class="pool-note" id="poolNote"></span>
+    </p>
+
+    <div class="empty" id="empty" hidden>
+      <p>No records match these filters.</p>
+      <button class="btn" type="button" id="emptyClear">Clear filters</button>
+    </div>
+
+    <fieldset class="modes">
+      <legend>Pick from</legend>
+      <div class="seg">
+        <label><input type="radio" name="mode" value="any" checked><span>Any</span></label>
+        <label><input type="radio" name="mode" value="least"><span>Least played</span></label>
+        <label><input type="radio" name="mode" value="most"><span>Most played</span></label>
+        <label><input type="radio" name="mode" value="recent"><span>Recently added</span></label>
+      </div>
+    </fieldset>
+
+    <button class="btn dip" type="button" id="dip">Lucky Dip</button>
+    <p class="dip-hint" id="dipHint"></p>
+    <div class="speaker-grille" aria-hidden="true"></div>
+  </section>
+
+  <section class="card" id="card" aria-labelledby="cardTitle">
+    <p class="card-tag" id="cardTag"></p>
+    <div class="card-body">
+      <div class="cover" id="cardCover" aria-hidden="true"><span></span></div>
+      <div class="card-info">
+        <h2 id="cardTitle" tabindex="-1"></h2>
+        <p class="card-artist" id="cardArtist"></p>
+        <dl class="meta">
+          <div><dt>Year</dt><dd id="cardYear"></dd></div>
+          <div><dt>Plays</dt><dd id="cardPlays"></dd></div>
+          <div><dt>Last picked</dt><dd id="cardPicked"></dd></div>
+        </dl>
+      </div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-spotify" id="spotify" href="#" target="_blank" rel="noopener noreferrer">Open in Spotify</a>
+      <button class="btn" type="button" id="reroll">Re-roll</button>
+    </div>
+    <p class="roll-msg" id="rollMsg"></p>
+  </section>
+
+  <section class="filters" aria-labelledby="filtersTitle">
+    <div class="filters-head">
+      <h2 id="filtersTitle">Filters</h2>
+      <button class="link-btn" type="button" id="clearAll">Clear all</button>
+    </div>
+    <div id="groups"></div>
+  </section>
+</main>
+
+<p class="sr-only" id="countLive" aria-live="polite"></p>
+
+<script>
+(() => {
+  'use strict';
+
+  // added / picked are "days ago" so the dummy data stays relative to whenever the file is opened.
+  const RAW = [
+    { artist: 'The Beatles', title: 'Abbey Road', year: 1969, genre: 'Rock', mood: 'Uplifting', length: 47, label: 'Apple', added: 900, plays: 42, picked: 40 },
+    { artist: 'Pink Floyd', title: 'The Dark Side of the Moon', year: 1973, genre: 'Rock', mood: 'Reflective', length: 43, label: 'Harvest', added: 1200, plays: 61, picked: 12 },
+    { artist: 'Fleetwood Mac', title: 'Rumours', year: 1977, genre: 'Rock', mood: 'Mellow', length: 39, label: 'Warner Bros.', added: 700, plays: 35, picked: 90 },
+    { artist: 'Michael Jackson', title: 'Thriller', year: 1982, genre: 'Pop', mood: 'Energetic', length: 42, label: 'Epic', added: 400, plays: 18, picked: null },
+    { artist: 'Miles Davis', title: 'Kind of Blue', year: 1959, genre: 'Jazz', mood: 'Mellow', length: 46, label: 'Columbia', added: 1500, plays: 27, picked: 200 },
+    { artist: 'Marvin Gaye', title: "What's Going On", year: 1971, genre: 'Soul', mood: 'Reflective', length: 35, label: 'Tamla', added: 150, plays: 14, picked: null },
+    { artist: 'Nirvana', title: 'Nevermind', year: 1991, genre: 'Rock', mood: 'Energetic', length: 49, label: 'DGC', added: 1800, plays: 50, picked: 5 },
+    { artist: 'Radiohead', title: 'OK Computer', year: 1997, genre: 'Alternative', mood: 'Melancholy', length: 53, label: 'Parlophone', added: 2000, plays: 73, picked: 2 },
+    { artist: 'Daft Punk', title: 'Discovery', year: 2001, genre: 'Electronic', mood: 'Energetic', length: 61, label: 'Virgin', added: 60, plays: 22, picked: 20 },
+    { artist: 'Kendrick Lamar', title: 'To Pimp a Butterfly', year: 2015, genre: 'Hip-Hop', mood: 'Intense', length: 79, label: 'Interscope', added: 300, plays: 31, picked: 45 },
+    { artist: 'Amy Winehouse', title: 'Back to Black', year: 2006, genre: 'Soul', mood: 'Melancholy', length: 35, label: 'Island', added: 500, plays: 19, picked: 120 },
+    { artist: 'Massive Attack', title: 'Mezzanine', year: 1998, genre: 'Electronic', mood: 'Dark', length: 63, label: 'Virgin', added: 820, plays: 26, picked: 60 },
+    { artist: 'Joni Mitchell', title: 'Blue', year: 1971, genre: 'Folk', mood: 'Melancholy', length: 36, label: 'Reprise', added: 25, plays: 9, picked: null },
+    { artist: 'Stevie Wonder', title: 'Songs in the Key of Life', year: 1976, genre: 'Soul', mood: 'Uplifting', length: 105, label: 'Tamla', added: 12, plays: 7, picked: null },
+    { artist: 'The Clash', title: 'London Calling', year: 1979, genre: 'Punk', mood: 'Energetic', length: 65, label: 'CBS', added: 640, plays: 16, picked: 300 },
+    { artist: 'Prince', title: 'Purple Rain', year: 1984, genre: 'Pop', mood: 'Energetic', length: 44, label: 'Warner Bros.', added: 90, plays: 11, picked: null },
+    { artist: 'Lauryn Hill', title: 'The Miseducation of Lauryn Hill', year: 1998, genre: 'Hip-Hop', mood: 'Reflective', length: 78, label: 'Columbia', added: 260, plays: 24, picked: 33 },
+    { artist: 'Bon Iver', title: 'For Emma, Forever Ago', year: 2007, genre: 'Folk', mood: 'Melancholy', length: 37, label: 'Jagjaguwar', added: 1100, plays: 30, picked: 75 },
+    { artist: 'Arctic Monkeys', title: 'AM', year: 2013, genre: 'Rock', mood: 'Dark', length: 41, label: 'Domino', added: 950, plays: 44, picked: 8 },
+    { artist: 'Adele', title: '21', year: 2011, genre: 'Pop', mood: 'Melancholy', length: 48, label: 'XL', added: 1300, plays: 13, picked: 400 },
+    { artist: 'Beyoncé', title: 'Lemonade', year: 2016, genre: 'R&B', mood: 'Intense', length: 46, label: 'Parkwood', added: 210, plays: 20, picked: 50 },
+    { artist: 'Frank Ocean', title: 'Blonde', year: 2016, genre: 'R&B', mood: 'Reflective', length: 60, label: "Boys Don't Cry", added: 700, plays: 58, picked: 3 },
+    { artist: 'Taylor Swift', title: 'Folklore', year: 2020, genre: 'Pop', mood: 'Mellow', length: 63, label: 'Republic', added: 400, plays: 25, picked: 110 },
+    { artist: 'Billie Eilish', title: 'When We All Fall Asleep, Where Do We Go?', year: 2019, genre: 'Pop', mood: 'Dark', length: 43, label: 'Interscope', added: 18, plays: 6, picked: null },
+    { artist: 'Portishead', title: 'Dummy', year: 1994, genre: 'Electronic', mood: 'Dark', length: 49, label: 'Go! Beat', added: 1600, plays: 33, picked: 150 },
+    { artist: 'Oasis', title: "(What's the Story) Morning Glory?", year: 1995, genre: 'Rock', mood: 'Uplifting', length: 50, label: 'Creation', added: 2100, plays: 39, picked: 25 },
+    { artist: 'Led Zeppelin', title: 'Led Zeppelin IV', year: 1971, genre: 'Rock', mood: 'Intense', length: 42, label: 'Atlantic', added: 1400, plays: 21, picked: 260 },
+    { artist: 'David Bowie', title: 'The Rise and Fall of Ziggy Stardust and the Spiders from Mars', year: 1972, genre: 'Rock', mood: 'Energetic', length: 39, label: 'RCA', added: 1000, plays: 28, picked: 70 },
+    { artist: 'Bob Marley & The Wailers', title: 'Exodus', year: 1977, genre: 'Reggae', mood: 'Uplifting', length: 37, label: 'Island', added: 170, plays: 12, picked: null },
+    { artist: 'John Coltrane', title: 'A Love Supreme', year: 1965, genre: 'Jazz', mood: 'Reflective', length: 33, label: 'Impulse!', added: 5, plays: 8, picked: null },
+    { artist: 'Kraftwerk', title: 'Trans-Europe Express', year: 1977, genre: 'Electronic', mood: 'Mellow', length: 43, label: 'EMI', added: 120, plays: 10, picked: 100 },
+    { artist: 'The Velvet Underground', title: 'The Velvet Underground & Nico', year: 1967, genre: 'Rock', mood: 'Dark', length: 48, label: 'Verve', added: 760, plays: 15, picked: 180 },
+    { artist: 'Johnny Cash', title: 'At Folsom Prison', year: 1968, genre: 'Country', mood: 'Energetic', length: 44, label: 'Columbia', added: 40, plays: 5, picked: null },
+    { artist: 'Dolly Parton', title: 'Jolene', year: 1974, genre: 'Country', mood: 'Mellow', length: 28, label: 'RCA', added: 9, plays: 4, picked: null },
+    { artist: 'Aphex Twin', title: 'Selected Ambient Works 85–92', year: 1992, genre: 'Electronic', mood: 'Mellow', length: 74, label: 'Apollo', added: 1250, plays: 37, picked: 14 },
+    { artist: 'Nas', title: 'Illmatic', year: 1994, genre: 'Hip-Hop', mood: 'Intense', length: 40, label: 'Columbia', added: 560, plays: 29, picked: 30 },
+    { artist: 'Tame Impala', title: 'Currents', year: 2015, genre: 'Alternative', mood: 'Mellow', length: 51, label: 'Modular', added: 880, plays: 47, picked: 10 },
+    { artist: 'The Smiths', title: 'The Queen Is Dead', year: 1986, genre: 'Alternative', mood: 'Melancholy', length: 37, label: 'Rough Trade', added: 1700, plays: 23, picked: 220 },
+    { artist: 'Talking Heads', title: 'Remain in Light', year: 1980, genre: 'Alternative', mood: 'Energetic', length: 40, label: 'Sire', added: 330, plays: 17, picked: 95 },
+    { artist: 'Buena Vista Social Club', title: 'Buena Vista Social Club', year: 1997, genre: 'World', mood: 'Mellow', length: 60, label: 'World Circuit', added: 2, plays: 3, picked: null }
+  ];
+
+  const MAX_ROLLS = 3;
+  const POOL_FRACTION = 0.25;
+  const DAY_MS = 86400000;
+  const CLAW_W = 36;
+  const CLAW_H = 30;
+  const DAILY_KEY = 'jukebox.albumOfTheDay';
+  const COUNT_ANNOUNCE_MS = 500;
+
+  function startOfToday() {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  let today = startOfToday();
+
+  function daysAgo(n) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - n);
+    return d;
+  }
+
+  const albums = RAW.map((a, i) => ({
+    id: i,
+    artist: a.artist,
+    title: a.title,
+    year: a.year,
+    genre: a.genre,
+    mood: a.mood,
+    length: a.length,
+    label: a.label,
+    addedDate: daysAgo(a.added),
+    playCount: a.plays,
+    lastPicked: a.picked === null ? null : daysAgo(a.picked)
+  }));
+
+  // ---------- helpers ----------
+  function hash(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  function mulberry32(seed) {
+    let a = seed;
+    return () => {
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function coverBackground(a) {
+    const h = hash(a.title + '|' + a.artist);
+    const h1 = h % 360;
+    const h2 = (h1 + 60 + ((h >>> 9) % 180)) % 360;
+    const c1 = `hsl(${h1}, 70%, 62%)`;
+    const c2 = `hsl(${h2}, 60%, 42%)`;
+    switch ((h >>> 4) % 3) {
+      case 0: return `linear-gradient(135deg, ${c1}, ${c2})`;
+      case 1: return `radial-gradient(circle at 30% 30%, ${c1} 0 32%, ${c2} 33%)`;
+      default: return `repeating-linear-gradient(45deg, ${c1} 0 10%, ${c2} 10% 20%)`;
+    }
+  }
+
+  function initials(title) {
+    const words = title.replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/)
+      .filter(w => w && !/^(the|a|an|of|and|in)$/i.test(w));
+    if (!words.length) return title.slice(0, 2).toUpperCase();
+    const text = words.length > 1 ? words[0][0] + words[1][0] : words[0].slice(0, 2);
+    return text.toUpperCase();
+  }
+
+  function formatDate(d) {
+    if (!d) return 'Never';
+    const diff = Math.round((today - new Date(d).setHours(0, 0, 0, 0)) / DAY_MS);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  function ageInDays(d) {
+    return Math.round((today - d) / DAY_MS);
+  }
+
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const unique = list => Array.from(new Set(list));
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  // ---------- filter definitions ----------
+  const LENGTHS = [
+    { id: 'short', label: 'Under 35 min', test: m => m < 35 },
+    { id: 'mid', label: '35–50 min', test: m => m >= 35 && m <= 50 },
+    { id: 'long', label: 'Over 50 min', test: m => m > 50 }
+  ];
+  const ADDED = [
+    { id: '30d', label: 'Last 30 days', test: d => d <= 30 },
+    { id: '6m', label: '1–6 months ago', test: d => d > 30 && d <= 182 },
+    { id: '1y', label: '6–12 months ago', test: d => d > 182 && d <= 365 },
+    { id: 'old', label: 'Over a year ago', test: d => d > 365 }
+  ];
+  const decadeOf = a => String(Math.floor(a.year / 10) * 10);
+  const asOptions = values => values.map(v => ({ id: v, label: v }));
+  const sortedUnique = fn => unique(albums.map(fn)).sort((x, y) => x.localeCompare(y));
+
+  const GROUPS = [
+    { key: 'artist', label: 'Artist', type: 'text', field: a => a.artist, placeholder: 'Search artists' },
+    { key: 'album', label: 'Album', type: 'text', field: a => a.title, placeholder: 'Search album titles' },
+    { key: 'decade', label: 'Year', type: 'chips', value: decadeOf,
+      options: sortedUnique(decadeOf).map(d => ({ id: d, label: d + 's' })) },
+    { key: 'genre', label: 'Genre', type: 'chips', value: a => a.genre, options: asOptions(sortedUnique(a => a.genre)) },
+    { key: 'mood', label: 'Mood', type: 'chips', value: a => a.mood, options: asOptions(sortedUnique(a => a.mood)) },
+    { key: 'length', label: 'Length', type: 'chips', value: a => LENGTHS.find(l => l.test(a.length)).id, options: LENGTHS },
+    { key: 'label', label: 'Label', type: 'chips', value: a => a.label, options: asOptions(sortedUnique(a => a.label)), closed: true },
+    { key: 'added', label: 'Added', type: 'chips', value: a => ADDED.find(x => x.test(ageInDays(a.addedDate))).id, options: ADDED }
+  ];
+
+  const MODES = {
+    any: { label: 'Any', sort: null },
+    least: { label: 'Least played', sort: (a, b) => a.playCount - b.playCount },
+    most: { label: 'Most played', sort: (a, b) => b.playCount - a.playCount },
+    recent: { label: 'Recently added', sort: (a, b) => b.addedDate - a.addedDate }
+  };
+
+  // ---------- state ----------
+  const state = {
+    filters: {},
+    mode: 'any',
+    matched: [],
+    pool: [],
+    current: null,
+    source: 'daily',
+    session: false,
+    committed: false,
+    rollsLeft: MAX_ROLLS,
+    busy: false,
+    shown: null
+  };
+  GROUPS.forEach(g => { state.filters[g.key] = g.type === 'text' ? '' : new Set(); });
+
+  // ---------- DOM ----------
+  const $ = id => document.getElementById(id);
+  const el = {
+    lights: $('lights'), count: $('count'), countLabel: $('countLabel'), poolNote: $('poolNote'),
+    stage: $('stage'), rack: $('rack'), platter: $('platter'), vinyl: $('vinyl'), vinylLabel: $('vinylLabel'),
+    tonearm: $('tonearm'), claw: $('claw'), empty: $('empty'), emptyClear: $('emptyClear'),
+    dip: $('dip'), dipHint: $('dipHint'), card: $('card'), cardTag: $('cardTag'), cardCover: $('cardCover'),
+    cardTitle: $('cardTitle'), cardArtist: $('cardArtist'), cardYear: $('cardYear'), cardPlays: $('cardPlays'),
+    cardPicked: $('cardPicked'), spotify: $('spotify'), reroll: $('reroll'), rollMsg: $('rollMsg'),
+    groups: $('groups'), clearAll: $('clearAll'), countLive: $('countLive')
+  };
+  const rackEls = new Map();
+  const lightEls = new Map();
+  const groupEls = new Map();
+
+  function buildRack() {
+    albums.forEach(a => {
+      const r = document.createElement('div');
+      r.className = 'rec';
+      r.style.background = coverBackground(a);
+      r.title = `${a.artist} – ${a.title}`;
+      el.rack.appendChild(r);
+      rackEls.set(a.id, r);
+    });
+  }
+
+  function buildLights() {
+    GROUPS.forEach(g => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'light';
+      const lamp = document.createElement('span');
+      lamp.className = 'lamp';
+      const text = document.createElement('span');
+      text.className = 'light-text';
+      text.textContent = g.label;
+      b.append(lamp, text);
+      b.addEventListener('click', () => openGroup(g.key));
+      el.lights.appendChild(b);
+      lightEls.set(g.key, b);
+    });
+  }
+
+  function buildFilters() {
+    GROUPS.forEach(g => {
+      const det = document.createElement('details');
+      det.className = 'group';
+      det.id = 'f-' + g.key;
+      det.open = !g.closed;
+      const sum = document.createElement('summary');
+      const name = document.createElement('span');
+      name.textContent = g.label;
+      const count = document.createElement('span');
+      count.className = 'group-count';
+      sum.append(name, count);
+      det.appendChild(sum);
+
+      if (g.type === 'text') {
+        const label = document.createElement('label');
+        label.className = 'sr-only';
+        label.htmlFor = 'in-' + g.key;
+        label.textContent = g.label + ' search';
+        const input = document.createElement('input');
+        input.type = 'search';
+        input.id = 'in-' + g.key;
+        input.className = 'text-filter';
+        input.placeholder = g.placeholder;
+        input.autocomplete = 'off';
+        if (g.key === 'artist') {
+          const list = document.createElement('datalist');
+          list.id = 'artist-list';
+          sortedUnique(a => a.artist).forEach(name => {
+            const o = document.createElement('option');
+            o.value = name;
+            list.appendChild(o);
+          });
+          input.setAttribute('list', list.id);
+          det.appendChild(list);
+        }
+        input.addEventListener('input', () => {
+          state.filters[g.key] = input.value;
+          update();
+        });
+        det.append(label, input);
+      } else {
+        const wrap = document.createElement('div');
+        wrap.className = 'chips';
+        wrap.setAttribute('role', 'group');
+        wrap.setAttribute('aria-label', g.label);
+        g.options.forEach(opt => {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'chip';
+          chip.textContent = opt.label;
+          chip.setAttribute('aria-pressed', 'false');
+          chip.addEventListener('click', () => {
+            const set = state.filters[g.key];
+            if (set.has(opt.id)) set.delete(opt.id); else set.add(opt.id);
+            chip.setAttribute('aria-pressed', String(set.has(opt.id)));
+            update();
+          });
+          wrap.appendChild(chip);
+        });
+        det.appendChild(wrap);
+      }
+      el.groups.appendChild(det);
+      groupEls.set(g.key, { details: det, count, summary: sum });
+    });
+  }
+
+  function openGroup(key) {
+    const { details, summary } = groupEls.get(key);
+    details.open = true;
+    details.scrollIntoView({ behavior: reduceMotion.matches ? 'auto' : 'smooth', block: 'start' });
+    const input = details.querySelector('input, .chip');
+    (input || summary).focus({ preventScroll: true });
+  }
+
+  function clearFilters() {
+    GROUPS.forEach(g => {
+      state.filters[g.key] = g.type === 'text' ? '' : new Set();
+    });
+    el.groups.querySelectorAll('input[type="search"]').forEach(i => { i.value = ''; });
+    el.groups.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', 'false'));
+    update();
+  }
+
+  // ---------- filtering ----------
+  function isActive(g) {
+    const f = state.filters[g.key];
+    return g.type === 'text' ? f.trim().length > 0 : f.size > 0;
+  }
+
+  function matches(a) {
+    return GROUPS.every(g => {
+      const f = state.filters[g.key];
+      if (g.type === 'text') {
+        const q = f.trim().toLowerCase();
+        return !q || g.field(a).toLowerCase().includes(q);
+      }
+      return f.size === 0 || f.has(g.value(a));
+    });
+  }
+
+  function buildPool(matched) {
+    const sort = MODES[state.mode].sort;
+    if (!sort || !matched.length) return matched;
+    const size = Math.max(1, Math.ceil(matched.length * POOL_FRACTION));
+    return matched.slice().sort(sort).slice(0, size);
+  }
+
+  function update() {
+    state.matched = albums.filter(matches);
+    state.pool = buildPool(state.matched);
+    const matchedIds = new Set(state.matched.map(a => a.id));
+    const poolIds = new Set(state.pool.map(a => a.id));
+
+    rackEls.forEach((r, id) => {
+      const inMatch = matchedIds.has(id);
+      r.classList.toggle('dim', !inMatch);
+      r.classList.toggle('outpool', inMatch && !poolIds.has(id));
+      r.classList.toggle('current', !!state.current && state.current.id === id);
+    });
+
+    const n = state.matched.length;
+    el.count.textContent = String(n);
+    el.countLabel.textContent = n === 1 ? 'record' : 'records';
+    el.poolNote.textContent = state.mode !== 'any' && n
+      ? `· picking from ${state.pool.length} ${MODES[state.mode].label.toLowerCase()}`
+      : '';
+
+    GROUPS.forEach(g => {
+      const active = isActive(g);
+      const light = lightEls.get(g.key);
+      light.classList.toggle('on', active);
+      light.setAttribute('aria-label', `${g.label} filter ${active ? 'on' : 'off'} – jump to filter`);
+      const f = state.filters[g.key];
+      groupEls.get(g.key).count.textContent = g.type === 'text' ? (active ? '1' : '') : (f.size ? String(f.size) : '');
+    });
+
+    el.empty.hidden = n > 0;
+    updateControls();
+    announceCount();
+  }
+
+  // Screen readers hear the count only once typing/tapping pauses.
+  let countTimer = 0;
+  function announceCount() {
+    clearTimeout(countTimer);
+    countTimer = setTimeout(() => {
+      const text = `${el.count.textContent} ${el.countLabel.textContent} ${el.poolNote.textContent}`.trim();
+      if (el.countLive.textContent !== text) el.countLive.textContent = text;
+    }, COUNT_ANNOUNCE_MS);
+  }
+
+  // ---------- controls & roll limit ----------
+  function updateControls() {
+    const empty = state.matched.length === 0;
+    const outOfRolls = state.session && state.rollsLeft === 0;
+    el.dip.disabled = state.busy || empty || outOfRolls;
+    el.reroll.disabled = state.busy || empty || !state.session || state.rollsLeft === 0;
+    el.card.inert = state.busy;
+
+    let msg;
+    if (outOfRolls) msg = 'No more rolls – give it a spin!';
+    else if (state.session) msg = `Re-rolls left: ${state.rollsLeft}`;
+    else if (state.committed) msg = 'Enjoy the record! Lucky Dip is ready for the next one.';
+    else msg = "Today's pick. Hit Lucky Dip for a random one.";
+    el.rollMsg.textContent = msg;
+    el.rollMsg.classList.toggle('out', outOfRolls);
+    el.dipHint.textContent = outOfRolls ? 'No more rolls – give it a spin!' : (empty ? 'Nothing to pick – loosen a filter.' : '');
+  }
+
+  function onDip() {
+    if (state.busy || !state.pool.length) return;
+    if (state.session) {
+      // Mid-session Lucky Dip counts as a re-roll so the limit cannot be bypassed.
+      if (state.rollsLeft === 0) return;
+      state.rollsLeft--;
+    } else {
+      state.session = true;
+      state.committed = false;
+      state.rollsLeft = MAX_ROLLS;
+    }
+    pick();
+  }
+
+  function onReroll() {
+    if (state.busy || !state.session || state.rollsLeft === 0 || !state.pool.length) return;
+    state.rollsLeft--;
+    pick();
+  }
+
+  function onSpotify(e) {
+    if (state.busy) {
+      e.preventDefault();
+      return;
+    }
+    if (state.session) {
+      state.session = false;
+      state.committed = true;
+      updateControls();
+    }
+  }
+
+  async function pick() {
+    const pool = state.pool;
+    const candidates = pool.length > 1 && state.current ? pool.filter(a => a.id !== state.current.id) : pool;
+    const album = candidates[Math.floor(Math.random() * candidates.length)];
+    const previousPick = album.lastPicked;
+    const mode = state.mode;
+
+    state.busy = true;
+    updateControls();
+    el.card.classList.add('is-pending');
+    el.card.setAttribute('aria-busy', 'true');
+
+    try {
+      await playAnimation(album);
+    } finally {
+      rackEls.get(album.id).classList.remove('taken', 'chosen');
+      setVinyl(album);
+      el.tonearm.classList.add('on');
+      album.lastPicked = new Date();
+      state.current = album;
+      state.source = 'dip';
+      renderCard(album, previousPick, mode);
+      state.busy = false;
+      update();
+      el.cardTitle.focus();
+    }
+  }
+
+  // ---------- rendering ----------
+  function setVinyl(album) {
+    el.vinylLabel.style.background = coverBackground(album);
+    el.vinylLabel.firstElementChild.textContent = initials(album.title);
+    el.vinyl.classList.add('loaded');
+  }
+
+  function renderCard(album, lastPicked, mode) {
+    state.shown = { album, lastPicked, mode };
+    el.cardTag.textContent = state.source === 'daily'
+      ? `Album of the day · ${today.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+      : `Lucky dip · ${MODES[mode].label}`;
+    el.cardCover.style.background = coverBackground(album);
+    el.cardCover.firstElementChild.textContent = initials(album.title);
+    el.cardTitle.textContent = album.title;
+    el.cardArtist.textContent = album.artist;
+    el.cardYear.textContent = String(album.year);
+    el.cardPlays.textContent = String(album.playCount);
+    el.cardPicked.textContent = formatDate(lastPicked);
+    el.spotify.href = 'https://open.spotify.com/search/' + encodeURIComponent(`${album.artist} ${album.title}`);
+    el.spotify.setAttribute('aria-label', `Open ${album.title} by ${album.artist} in Spotify (new tab)`);
+    el.card.classList.remove('is-pending');
+    el.card.removeAttribute('aria-busy');
+  }
+
+  // ---------- animation ----------
+  let clawPos = { x: 0, y: 0 };
+
+  function relCenter(node) {
+    const r = node.getBoundingClientRect();
+    const s = el.stage.getBoundingClientRect();
+    return {
+      x: r.left - s.left - el.stage.clientLeft + r.width / 2,
+      y: r.top - s.top - el.stage.clientTop + r.height / 2,
+      w: r.width
+    };
+  }
+
+  function clawHome() {
+    return { x: el.stage.clientWidth - 30, y: 22 };
+  }
+
+  // Claw fingertips sit just above the target point.
+  function clawTransform(p) {
+    return `translate(${p.x - CLAW_W / 2}px, ${p.y - CLAW_H * 0.8}px)`;
+  }
+
+  function placeClaw(p) {
+    clawPos = p;
+    el.claw.style.transform = clawTransform(p);
+  }
+
+  async function animateTransform(node, from, to, duration) {
+    const anim = node.animate([{ transform: from }, { transform: to }],
+      { duration, easing: 'cubic-bezier(.45, 0, .25, 1)', fill: 'forwards' });
+    await anim.finished;
+    node.style.transform = to;
+    anim.cancel();
+  }
+
+  function moveClaw(p, duration) {
+    const from = clawTransform(clawPos);
+    clawPos = p;
+    return animateTransform(el.claw, from, clawTransform(p), duration);
+  }
+
+  async function playAnimation(album) {
+    el.tonearm.classList.remove('on');
+    if (reduceMotion.matches) {
+      setVinyl(album);
+      el.tonearm.classList.add('on');
+      return;
+    }
+    const recEl = rackEls.get(album.id);
+    el.vinyl.classList.remove('loaded');
+
+    recEl.classList.add('chosen');
+    await wait(250);
+
+    const from = relCenter(recEl);
+    const to = relCenter(el.platter);
+    await moveClaw(from, 600);
+    el.claw.classList.add('closed');
+    await wait(150);
+
+    const size = el.vinyl.offsetWidth;
+    const flyer = document.createElement('div');
+    flyer.className = 'flyer';
+    flyer.style.width = flyer.style.height = size + 'px';
+    const flyerLabel = document.createElement('div');
+    flyerLabel.className = 'flyer-label';
+    flyerLabel.style.background = coverBackground(album);
+    flyer.appendChild(flyerLabel);
+    const startT = `translate(${from.x - size / 2}px, ${from.y - size / 2}px) scale(${from.w / size})`;
+    const endT = `translate(${to.x - size / 2}px, ${to.y - size / 2}px) scale(1)`;
+    flyer.style.transform = startT;
+    el.stage.appendChild(flyer);
+    recEl.classList.add('taken');
+
+    await Promise.all([moveClaw(to, 800), animateTransform(flyer, startT, endT, 800)]);
+
+    el.claw.classList.remove('closed');
+    setVinyl(album);
+    flyer.remove();
+    recEl.classList.remove('taken', 'chosen');
+    moveClaw(clawHome(), 450);
+
+    el.tonearm.classList.add('on');
+    el.vinyl.classList.remove('spinning');
+    void el.vinyl.offsetWidth; // restart the CSS animation
+    el.vinyl.classList.add('spinning');
+    await wait(1400);
+    el.vinyl.classList.remove('spinning');
+  }
+
+  // ---------- album of the day ----------
+  function albumOfTheDay() {
+    const key = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+    let saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem(DAILY_KEY));
+    } catch (err) { /* storage can be blocked on file:// */ }
+    if (saved && saved.date === key) {
+      const kept = albums.find(a => a.id === saved.albumId);
+      if (kept) return kept;
+    }
+    // Sort by id so the seeded pick doesn't depend on library order.
+    const sorted = albums.slice().sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const album = sorted[Math.floor(mulberry32(hash(key))() * sorted.length)];
+    try {
+      localStorage.setItem(DAILY_KEY, JSON.stringify({ date: key, albumId: album.id }));
+    } catch (err) { /* storage can be blocked on file:// */ }
+    return album;
+  }
+
+  function showDaily() {
+    const daily = albumOfTheDay();
+    state.current = daily;
+    state.source = 'daily';
+    setVinyl(daily);
+    el.tonearm.classList.add('on');
+    renderCard(daily, daily.lastPicked);
+  }
+
+  function onVisibilityChange() {
+    if (document.visibilityState !== 'visible') return;
+    const now = startOfToday();
+    if (now.getTime() === today.getTime()) return;
+    today = now;
+    // An in-flight pick renders with the new date when it reveals.
+    if (!state.busy) {
+      if (state.source === 'daily') showDaily();
+      else renderCard(state.shown.album, state.shown.lastPicked, state.shown.mode);
+    }
+    update();
+  }
+
+  // ---------- init ----------
+  buildRack();
+  buildLights();
+  buildFilters();
+
+  document.querySelectorAll('input[name="mode"]').forEach(r => {
+    r.addEventListener('change', () => {
+      state.mode = r.value;
+      update();
+    });
+  });
+  el.dip.addEventListener('click', onDip);
+  el.reroll.addEventListener('click', onReroll);
+  el.spotify.addEventListener('click', onSpotify);
+  el.clearAll.addEventListener('click', clearFilters);
+  el.emptyClear.addEventListener('click', clearFilters);
+  window.addEventListener('resize', () => { if (!state.busy) placeClaw(clawHome()); });
+  document.addEventListener('visibilitychange', onVisibilityChange);
+
+  showDaily();
+  placeClaw(clawHome());
+  update();
+})();
+</script>
+</body>
+</html>
