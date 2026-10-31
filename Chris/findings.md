@@ -4,6 +4,7 @@ Orientation review of the Jukebox feature, written 2026-10-31.
 
 - **Scope:** read-only code review. No application code was changed.
 - **Sources read:** `HANDOVER.md`, `AGENTS.md`, `DESIGN.md`, the Jukebox spec / plan / differential review in `docs/superpowers/`, and all the code listed in section 3.
+- **Update (fourth pass):** section 13 investigates building the curated list from a Spotify playlist of single tracks, by tracing each track back to its album. Verdict: feasible and the most efficient of the options. It also surfaced a possible problem with the existing genre lookup (finding 25).
 - **Update (third pass):** section 12 investigates whether a user could curate their own album list instead of relying on Spotify or scrobbles. Short answer: not today, but the app has most of the building blocks.
 - **Update (second pass):** the two original reference files (the brother's product spec and HTML mockup) have been added to `Chris/referencejukebox/` and compared against the implementation. See **sections 10 and 11**. That comparison also corrected a few statements in section 6, which are marked "(revised)".
 - **Tests:** not run. The Python and Node dependencies are not installed in this environment (`pytest` and `node_modules` are missing). The test status quoted in section 7 comes from the earlier review document, not from me.
@@ -188,6 +189,7 @@ The spec (`docs/superpowers/specs/2026-10-30-album-jukebox-design.md`) is still 
 22. **"Open in Spotify" is live before anything is picked.** With no pick, `spotifyLink` is `"#"`, but the link still has `target="_blank"` and an `onClick` that commits the session. Clicking it opens a blank tab on the same page. The mockup never has this problem because the album of the day is always present, so the link is always valid. Affects both skins.
 23. **Double-clicking Lucky Dip can bypass the roll limit.** `handleRoll` in both skins checks `busy` and `canRoll`, but not `spinning`. `busy` is never set to true anywhere, so the button stays enabled during the 450 ms (Flat) or 600 ms (Retro) delay. Two quick clicks each schedule a pick. Both closures were created while `sessionActive` was still false, so both take the "start a new session" path and reset the rolls to 3 instead of spending one. The original spec (§7.2) calls out exactly this loophole and says it must not be possible.
 24. **The Jukebox ignores the user's blocks.** `AGENTS.md` says to exclude blocked items (`not_blocked_clause`), and the Library lets users block an artist, album or track (`blocked_items`). `backend/app/api/jukebox.py` never reads that table. In archive mode, an album or artist the user has blocked can still be picked, and in Spotify-saved mode a blocked album still appears. (Found during the curation investigation, section 12.)
+25. **Album genres may be empty in production (needs checking).** The album sync looks up genres with Spotify's batch artist endpoint (`GET /v1/artists?ids=…`, `SpotifyClient.artists`), and the backend artwork backfill uses the batch track endpoint (`GET /v1/tracks?ids=…`). Search summaries of Spotify's February 2026 changelog say batch endpoints, including Get Several Artists and Get Several Tracks, were removed for **Development Mode** apps. I could not read Spotify's own pages from this environment, so this is unconfirmed (see 13.7). If the app is in Development Mode, the genre call fails, the sync catches the error and logs "Could not resolve artist genres during album sync", and albums are stored with **empty genres**, so the Genre filter has nothing to offer. Quick check: look for that log line in the worker logs, and look at whether any `saved_albums.genres` are non-empty.
 
 ---
 
@@ -405,7 +407,7 @@ All options need a **new** Alembic migration (0029 or later). Migration 0028 is 
 | **Type it in** (artist, album, optional year, genre, length) | Whatever the user types | Low | Same pattern as manual gigs. Tedious for many albums. |
 | **Paste a Spotify album link or ID** | Full metadata once resolved | Medium | A background job fills in the details (see below). Gives the real Spotify link. |
 | **Search and add** | Full metadata | Medium to high | See the "which search" note below. |
-| **Import from a Spotify playlist** (user curates a playlist, the app takes its albums) | Full metadata | Medium | Lets curation happen in Spotify. Uses scopes already granted. |
+| **Import from a Spotify playlist** (user curates a playlist, the app takes its albums) | Full metadata | Medium | Lets curation happen in Spotify. Uses scopes already granted. **Investigated in detail in section 13; it looks like the best option.** |
 | **Upload a list** (CSV or plain text of artist and album) | Names only until enriched | Medium | Fits the existing file-import style. |
 
 **Which search for lookups?**
@@ -464,3 +466,141 @@ All options need a **new** Alembic migration (0029 or later). Migration 0028 is 
 6. **Export.** Should the curated list be included in the data export?
 
 None of these were built or changed as part of this investigation. Any build would go through the planner agent for approval first.
+
+---
+
+## 13. Investigation: build the list from a Spotify playlist of single tracks
+
+**Idea:** the user makes a Spotify playlist containing one song from each album they want (for example 100 songs for 100 albums). The app reads the playlist, traces each song back to the album it belongs to, and adds those albums to the Jukebox list.
+
+**Verdict:** feasible, and the most efficient of the options in section 12.5. It needs no search feature, because Spotify's own search is the search box. It uses Spotify scopes the app already requests, and the track data already contains most of what the Jukebox needs. It has to run as a background job, and it has some caveats about what "origin album" means (13.4).
+
+> **Evidence note.** The code findings below come from reading the repo. The Spotify API behaviour comes from search-result summaries of Spotify's February 2026 changelog and migration guide. I tried to read the official pages directly, but `developer.spotify.com` is not reachable from this environment, so those points are marked **(unverified)** and should be checked against the live documentation before any build.
+
+### 13.1 How it would work
+
+| Step | What happens | Calls to Spotify |
+|---|---|---|
+| 1. Choose the playlist | The user pastes a playlist link or ID, or picks one from a list of their own playlists. The app already has both: `_extract_playlist_id` parses links, and `GET /tools/scope-creep/playlists` plus a picker in `ScopeCreepTools.jsx` list the user's playlists. | 0 (or 1 to list playlists) |
+| 2. Queue a job | The backend records a small import job and returns straight away. | 0 |
+| 3. Read the playlist | The worker fetches the playlist items, 100 per page. Each track object already carries a simplified **album**: Spotify album ID, name, type (`album` / `single` / `compilation`), release date, artwork, artists, link and track count. | 1 per 100 tracks |
+| 4. Trace tracks to albums | Take each item's album. **De-duplicate by album ID** (three songs from one album become one album). Skip local files, podcast episodes and unavailable items. Skip albums already in the list. | 0 |
+| 5. Store | The albums are saved straight away with what the playlist gave (title, artist, year, artwork, Spotify link). They are playable immediately. | 0 |
+| 6. Enrich | Fill in length, label and genres over the next few worker runs, a few at a time. | 1 per album (or 1 per 20 if batching is allowed; see 13.7) plus artist genre lookups |
+| 7. Report | The user sees "Imported 87 albums; 9 already in your list; 4 tracks skipped (local files)", with progress while it runs. | 0 |
+
+**Call budget for 100 songs from 100 different albums:** about 1 call to read the playlist, up to 100 album lookups and up to 100 artist lookups to enrich. That is small if spread over several worker runs. If batch endpoints are still allowed it is roughly 8 calls in total. The playlist is readable in a single call, so the Jukebox becomes usable almost immediately even while genres and lengths are still filling in.
+
+### 13.2 What the track already tells us
+
+| Jukebox field | From the playlist track's album object? |
+|---|---|
+| Spotify album ID, title, artist | **Yes** |
+| Release date and year (decade filter) | **Yes** |
+| Artwork | **Yes** |
+| Spotify link (for "Open in Spotify") | **Yes** |
+| Album type (album / single / compilation) | **Yes**, useful for the review step (13.4) |
+| Length (length filter) | **No.** Needs an album lookup (sum of track durations). |
+| Label | **No.** Needs an album lookup. |
+| Genre | **No.** Albums carry none; it comes from the artist, via a separate lookup. |
+| Mood | **No** (unchanged from section 11). |
+
+So the year, decade, artwork and link are free; only length, label and genre need the background step. Albums are usable meanwhile, but the length filter should treat "unknown length" as unknown rather than "short" (the current engine counts a missing duration as 0 minutes).
+
+### 13.3 How it fits the architecture
+
+| Concern | Position |
+|---|---|
+| **No Spotify calls inside a web request** (`AGENTS.md`) | Use a job table and a worker job. The repo already has the pattern: `setlist_import_jobs` (status, remaining payload, progress counts, message, `resume_after`) and the `setlist-import-resume` worker job. Latency equals the worker interval, so use a short interval such as the 2-minute `venue-geocoding` job. *(Note: some existing code, such as the playlist picker, does call Spotify from a request handler. The new work should follow the rule, not that precedent.)* |
+| **Token handling** | The worker already decrypts the user's stored refresh token, refreshes the access token and persists a rotated token (`sync_saved_albums_for_user`). Reuse that. |
+| **Rate limits** | Reuse `spotify_rate_limit_blocked_until()` and `SpotifyClient._request` (retries, honours `Retry-After`). Cap how many albums are enriched per run. |
+| **Scopes** | `playlist-read-private` and `playlist-read-collaborative` are already requested. Users who signed in before they were added are handled by the existing `needs_scope` / re-authorise flow in `ScopeCreepTools.jsx`. |
+| **Playlist read code** | The app can read a playlist's name and create or append to a playlist, but **nothing reads a playlist's tracks yet**. A new `SpotifyClient.playlist_items` method is needed. The app's write path already uses the newer `/playlists/{id}/items` form, which suggests the code was updated for Spotify's rename. |
+| **Data model** | Needs the `source` column from section 12.4 (Option A), plus a reference to the playlist. See 13.5. |
+| **Design system** | Plain forms, buttons and a progress line. No gradients or shadows needed. |
+| **Blocks** | The imported albums must respect the user's blocks (finding 24). |
+
+### 13.4 "Trace the song to its origin album": what that really means
+
+Spotify gives the album that **that particular track entry** belongs to. It does not say which album a song was first released on. This matters because the same song often exists on several releases.
+
+| Situation | What the app gets | Suggested handling |
+|---|---|---|
+| Song added from its original studio album | The right album. | Nothing needed. |
+| Song added from a **single** or EP release | The single, whose album ID is not the parent album. | Use the `album_type` field to flag it in a review step, and let the user remove it or replace it later. |
+| Song added from a **compilation** or "Greatest Hits" | The compilation. | Flag it the same way. |
+| Song added from a **deluxe / remastered / live** edition | That edition (a different ID from the standard album). | Accept it. It is probably the version the user meant. Show the full title so they can see. |
+| Several songs from the same album | One album (de-duplicated). | Show the number of songs, for example "3 songs". |
+| **Local files, podcast episodes, removed or unavailable tracks** | No usable album. | Skip and count them in the report. |
+| A song that is relinked to a different regional release | Occasionally a different album ID from the one shown in Spotify. | Rare. Ignore. |
+
+Finding the "canonical" original album for a song would need a separate music database such as MusicBrainz. That is out of scope here; the review step covers most of the risk more simply.
+
+**Recommended: a review screen before saving.** After the worker reads the playlist, show the list of albums found (artwork, title, artist, "from 3 songs", a badge for single or compilation), with all ticked except flagged ones, and a button to add the ticked ones. This keeps the user in control and avoids silently importing singles. It needs a "pending review" job status, and means the first worker pass only reads and previews, while the save is a second step.
+
+### 13.5 One-off import or a live link?
+
+| Approach | How it works | Pros | Cons |
+|---|---|---|---|
+| **One-off import** | Run the import once; the albums become ordinary entries in the user's list. | Simple. The user can edit or remove entries freely afterwards. | Adding more albums later means another import. |
+| **Linked playlist (live)** | The user nominates one playlist as the Jukebox list. The worker re-reads it periodically (same cadence as the saved-albums sync) and keeps the Jukebox in step: new songs add albums, removed songs remove them. | Curating becomes "edit a playlist in Spotify", which users already know. **Solves the "removals never sync" problem (finding 11) for this source**, because the playlist is the source of truth. | Needs a stored playlist ID and a way to avoid clobbering manual entries (rows must record which playlist added them). A deleted playlist or lost access must degrade safely instead of emptying the list. |
+
+A sensible path is to build the one-off import first, with each imported row recording where it came from (for example `source = 'playlist'` and the playlist ID), so the live link can be added later without a redesign.
+
+### 13.6 Limits and edge cases
+
+- **Only the user's own playlists (unverified).** Search summaries of the February 2026 change say a playlist's items are returned only for playlists the user **owns or collaborates on**; for others the items are missing. That is fine for the described workflow (the user builds their own playlist), but followed, shared or Spotify-made playlists will not work. The app should detect an empty or absent items list and show a clear message ("Spotify only lets us read playlists you own or collaborate on. Copy it into one of your own first.").
+- **Playlist size.** Spotify returns 100 items per page. Set a cap per import (for example 500 albums) and one active import per user.
+- **Duplicates across imports.** Match on the Spotify album ID, which is exact, unlike the name matching used for play counts.
+- **Album already saved in Spotify.** The existing saved-albums sync uses the same album ID, so decide which source wins (suggested: keep it once, mark it as manual / playlist so the sync never removes it).
+- **Non-Spotify listeners.** This only helps people who use Spotify. Apple Music or file-only users still need the Library route from section 12.
+- **Partial failure.** If Spotify rate-limits halfway, the job should pause and resume later (as the setlist import does), not fail and lose progress.
+
+### 13.7 The Spotify API risk (needs checking first)
+
+According to search summaries (unverified; the official pages could not be read here):
+
+- In February 2026 Spotify changed **Development Mode** apps. New apps from 11 February 2026 and existing ones from 9 March 2026 are reported as affected. Apps in Extended Quota Mode are reported as unaffected.
+- **Batch endpoints were removed** for Development Mode apps, including Get Several Albums, Get Several Artists and Get Several Tracks. The replacement is one call per item (`GET /albums/{id}`).
+- **Playlist endpoints moved** from `/playlists/{id}/tracks` to `/playlists/{id}/items`, with items returned only for playlists the user owns or collaborates on. Response field names were reported as renamed (`tracks` to `items`, and per-entry `track` to `item`). **A new playlist reader must use the new names**, and the code should accept both while this is uncertain.
+- A later (March 2026) note reportedly reversed one removed field (`external_ids`). The details of which fields stayed or went were not confirmed.
+
+**What this means for the playlist idea:** it still works, but enrichment may cost one call per album instead of one per twenty, and field names must be confirmed. At 100 albums that is manageable if spread across worker runs; at 1,000 it would take a long time.
+
+**What this means for existing code (finding 25):** the album sync's genre lookup uses the batch artist endpoint, and the artwork backfill uses the batch track endpoint. If this app is registered in Development Mode, both may already be failing. Because the album sync swallows the error, nobody would notice except through empty genres.
+
+**To settle it:**
+
+1. Ask the maintainer whether the Spotify app is in Development Mode or has Extended Quota (the developer dashboard shows this).
+2. Read Spotify's February 2026 migration guide and changelog directly.
+3. Search the worker logs for "Could not resolve artist genres during album sync".
+
+### 13.8 How it compares with the other ways to add albums
+
+| Method (from 12.5) | Metadata | Effort for the user | Effort to build | Verdict |
+|---|---|---|---|---|
+| Add from the Library | Names and artwork only | One click each, or bulk | Low | Good for albums already scrobbled |
+| Type it in | What the user types | High per album | Low | Fallback for odd cases |
+| Paste an album link | Full | One link per album | Medium | Fine for a few |
+| **Spotify playlist of songs** | **Year, artwork and link immediately; the rest after enrichment** | **Very low: build the playlist in Spotify, paste one link** | **Medium** (new job table, worker method, review screen) | **Best for bulk** |
+| Search inside the app | Full | Medium | High | Not needed if the playlist route exists |
+| Upload a text or CSV list | Names only until enriched | Medium | Medium | Useful for non-Spotify users |
+
+### 13.9 Suggested build outline (for the planner step, not started)
+
+1. **Migration:** `source` and `source_ref` on `saved_albums` (or a separate table), plus a job table such as `jukebox_import_jobs` (user, playlist ID, status such as `queued` / `reading` / `review` / `saving` / `enriching` / `done` / `failed`, counts, message, found albums as JSON for the review step).
+2. **Backend:** `POST /jukebox/import/playlist` (validate the playlist ID against `[A-Za-z0-9]{22}`, create the job, one active job per user), `GET /jukebox/import/{job}` (status and preview), `POST /jukebox/import/{job}/confirm` (selected album IDs), plus a worker-only internal route to save albums. All JWT-protected and scoped by `user_id`.
+3. **Worker:** `SpotifyClient.playlist_items`, a job that reads and previews, a job that enriches a few albums per run, both rate-limit aware and resumable.
+4. **Frontend:** "Import from a Spotify playlist" in the Jukebox settings: paste or pick, progress line, review list with ticks, a result summary. The picker already exists.
+5. **Hygiene:** validate that any stored `spotify_url` is an `https://open.spotify.com/…` link; treat all text as plain text; apply blocks; add tests (worker, backend, frontend) including one against real Postgres for the migration; update the changelog, version, user guide, FAQ and `agents/page_specs.md`; get planner approval first.
+
+### 13.10 Decisions needed
+
+1. **Review step or straight in?** Show a tick-list first (recommended), or import everything immediately?
+2. **One-off or live-linked playlist?** (13.5) Or one-off first, with the live link later?
+3. **What to do with singles and compilations?** Flag and untick by default (suggested), skip, or import as they are?
+4. **Is the Spotify app in Development Mode?** This decides whether enrichment is one call per album (13.7).
+5. **Upper limit** on albums per import and per user.
+6. **Should imported albums be removable one by one**, and should removing one stop the live link from re-adding it?
+
+None of this was built or changed. Any build would go through the planner agent for approval first.
