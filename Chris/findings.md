@@ -4,6 +4,7 @@ Orientation review of the Jukebox feature, written 2026-10-31.
 
 - **Scope:** read-only code review. No application code was changed.
 - **Sources read:** `HANDOVER.md`, `AGENTS.md`, `DESIGN.md`, the Jukebox spec / plan / differential review in `docs/superpowers/`, and all the code listed in section 3.
+- **Update (sixth pass):** section 15 checks the plan to build an alternative here and merge it back. The plan is sound; the branch currently holds only notes, and section 15.3 lists what makes a merge back easy.
 - **Update (fifth pass):** section 14 investigates whether the Jukebox can be exempt from the design standards and live on its own tab. Short answer: yes. The rules are documentation plus one test on `styles.css`, and a dedicated page with CSS modules fits cleanly.
 - **Update (fourth pass):** section 13 investigates building the curated list from a Spotify playlist of single tracks, by tracing each track back to its album. Verdict: feasible and the most efficient of the options. It also surfaced a possible problem with the existing genre lookup (finding 25).
 - **Update (third pass):** section 12 investigates whether a user could curate their own album list instead of relying on Spotify or scrobbles. Short answer: not today, but the app has most of the building blocks.
@@ -702,3 +703,86 @@ Exceptions are about **appearance**. These should stay mandatory on the Jukebox 
 6. **Upstream:** will this fork's changes ever go back to the original maintainer? If so, the wording changes to `DESIGN.md` and `AGENTS.md` need their agreement.
 
 None of this was changed. Any build would go through the planner agent for approval first, and the `DESIGN.md` and `AGENTS.md` wording changes should be part of that plan.
+
+---
+
+## 15. Plan check: demonstrate an alternative build here, then possibly merge it back
+
+**The plan as understood:** (1) review the Jukebox on this branch; (2) build an alternative version here to demonstrate it; (3) if it proves useful, merge it back into the original branch or the original repo.
+
+**Verdict:** the plan is sound and merging back is possible. A few choices at the start make it much easier to merge, listed in 15.3.
+
+### 15.1 Where things stand (checked in git)
+
+| Fact | Detail |
+|---|---|
+| Repo | `origin` is `crispy-lettuce/audio-scrobbler-app` (the fork). The only remote configured here is the fork. |
+| This branch | `ccr-37e5abf1-w8n9ci` is `main` plus 5 documentation commits. It is 0 commits behind the fork's `main` and 5 ahead. |
+| What those commits contain | Only `Chris/findings.md` and `Chris/referencejukebox/*` (3 files, about 1,970 lines, no code). |
+| The Jukebox | Already in the fork's `main` (commits `20e27ae` to `05a23b3`). The version is 0.29.0 and the newest migration is `0028_add_saved_albums`. |
+| **No alternative build exists yet.** | Everything so far is review and analysis. |
+| Upstream | I have not looked at the original repo. This session is limited to the fork, and the upstream remote is not configured. From `HANDOVER.md` the original maintainer is Andy (GitHub `Notascooby25`), so the original is most likely `Notascooby25/audio-scrobbler-app` (to be confirmed). **I can't say whether upstream `main` has moved on since the fork.** |
+| Licence | The repo has no `LICENSE` or `CONTRIBUTING` file, and no `CODEOWNERS` or pull-request template. Worth asking the maintainer how they want outside contributions handled. |
+
+### 15.2 Can it be merged back?
+
+"Original branch" is read here as either this fork's `main` or the upstream repository's `main`. Both are possible.
+
+| Route | Possible? | What it involves |
+|---|---|---|
+| **Into the fork's own `main`** | Yes, easily. | Nothing is deployed to anyone else's server. The CI publishes images under the fork's own name (`ghcr.io/${{ github.repository }}-…`), which only matters if you run your own server from them. |
+| **A pull request from the fork to the upstream `main`** | Yes, for a public repo. GitHub allows cross-fork pull requests. | The maintainer decides whether to accept. CI runs on the pull request (it has a `pull_request` trigger), including the tests and the migration check, so it must be green. For a first-time outside contributor, the maintainer may need to approve the workflow run. |
+| **A pull request containing only the code** | Recommended. | Build a clean branch from the latest upstream `main` that carries the code and its tests, **not** the `Chris/` folder (your notes and the reference files are not part of the app). See 15.3. |
+
+**What happens on the maintainer's side when it is merged:** `HANDOVER.md` says every push to upstream `main` builds images and the production server redeploys within about 5 minutes. A merged pull request therefore goes to the family production server automatically. This is the main reason to keep the change small, additive and well tested. Pull requests there have been squash-merged.
+
+### 15.3 What would make the merge easy (and what to avoid)
+
+1. **Keep the demonstration separate from the notes.** Today this branch holds the `Chris/` notes. The code for an upstream pull request should go on a clean branch from the latest upstream `main`, or be copied onto one at the end. (This session is limited to this designated branch, so creating a second branch needs your say-so.)
+2. **Fetch upstream first.** Add the upstream remote and compare. If the maintainer has already changed the Jukebox, build against that, not the fork's older copy.
+3. **Make the alternative additive.** A new page and route (for example `/album-jukebox`), new component files, and a nav link, leaving the existing Overview card untouched at first. That gives a small diff, few conflicts, a side-by-side comparison for the maintainer, and an easy rollback (remove the link and route).
+4. **Avoid database changes in the first version.** The engine and the existing API are enough for a demonstration. Later features (curated list, playlist import) need migrations and should be separate pull requests, each with its own review.
+5. **Demo without Spotify.** A built-in sample catalogue (the mockup's 40 albums) lets anyone see the page with no Spotify account. If shipped, keep it behind a development-only flag, as `/connect` already does with `import.meta.env.DEV`.
+6. **Agree the design exception first** (section 14). Changes to `DESIGN.md` and `AGENTS.md` are the maintainer's rules, so they need explicit agreement before they are merged.
+7. **Open a conversation before the pull request.** An issue or draft pull request with screenshots and a link to a trimmed version of these findings avoids surprising the maintainer.
+
+### 15.4 What the original repo will expect (from `AGENTS.md`, `HANDOVER.md` and the planner agent)
+
+| Expectation | Notes for this work |
+|---|---|
+| **Plan, approval, then implement** | `AGENTS.md` requires the planner agent's plan to be approved first, with numbered steps, files, tests, risks, deploy impact and a commit message per step, ending "Confirm to proceed". For an outside contribution, an issue or draft pull request plays that role. |
+| **Tests and linters** | `ruff check` and `ruff format --check`, the backend and worker `pytest` run, and `npm run lint && npm test && npm run build`. **Because a new nav link changes navigation, `npm run test:e2e` is also expected.** Migration changes need `alembic upgrade head` on a throwaway Postgres. |
+| **Changelog and version** | A new `changelogData.js` entry and a `package.json` version bump. These **will conflict** if upstream has released since 0.29.0, so rebase and re-number at the end. |
+| **Migrations** | Never edit applied ones. If upstream has added a `0029`, a second `0029` would create two Alembic heads and fail. Renumber at merge time. |
+| **Docs** | User guide and FAQ entries, `agents/page_specs.md` (it still lists six header links and has no Jukebox), and the `DESIGN.md` and `AGENTS.md` exception wording. |
+| **Security review** | `AGENTS.md` asks for a `differential-review` before commit. That skill is not available in this session, so this must be done another way (or by the maintainer). |
+| **Public repo hygiene** | No secrets, hostnames or private details in anything committed. |
+| **Commit style** | Conventional (`feat(jukebox): …`). Use `[skip ci]` only for docs-only commits. |
+
+### 15.5 Suggested sequence
+
+1. **Confirm the upstream.** Add the remote, fetch it, and compare with the fork's `main`. Decide the base.
+2. **Agree the target and the design exception** (section 14), with the maintainer if the aim is upstream.
+3. **Get a plan approved** (small, additive, no migration).
+4. **Build the demonstration page** with the sample data and the existing engine, and check it at phone width, in light and dark themes, and with reduced motion.
+5. **Show it.** Screenshots at 375 px and desktop width, or a short recording, linked from the draft pull request.
+6. **If it is liked:** rebase onto upstream `main`, re-number the version and any migration, run the full checks (including e2e), then raise the pull request with the `Chris/` folder left out.
+
+### 15.6 Risks
+
+| Risk | Mitigation |
+|---|---|
+| The upstream has moved on, so the fork's base is stale | Fetch upstream first (step 1). |
+| The maintainer declines the design exception | The page can still be kept in the fork. Or build a flat-compliant version (option D, section 11.3). |
+| A merged change redeploys production | Keep it additive and tested, and have the maintainer merge it at a time they choose. |
+| Version and migration collisions | Choose both as late as possible, at rebase time. |
+| `Chris/` files travel upstream by accident | Use a clean branch for the pull request, and check `git diff --stat` before opening it. |
+| Rights over the reference mockup and spec | The spec credits the maintainer's brother. Check that the maintainer is happy for the mockup's styling and text to be reused as the basis. |
+
+### 15.7 Decisions needed
+
+1. **Target:** the fork's `main` only, or an upstream pull request, or both in that order?
+2. **Upstream name** to add as a remote, and whether you want the maintainer's agreement before building.
+3. **Separate branch for the code?** (needs your permission to create and push it.)
+4. **First demonstration scope:** the new page only (recommended), or also changes to the Overview card?
+5. **Sample data:** include a development-only demo catalogue?
