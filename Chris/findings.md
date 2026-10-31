@@ -4,6 +4,7 @@ Orientation review of the Jukebox feature, written 2026-10-31.
 
 - **Scope:** read-only code review. No application code was changed.
 - **Sources read:** `HANDOVER.md`, `AGENTS.md`, `DESIGN.md`, the Jukebox spec / plan / differential review in `docs/superpowers/`, and all the code listed in section 3.
+- **Update (fifth pass):** section 14 investigates whether the Jukebox can be exempt from the design standards and live on its own tab. Short answer: yes. The rules are documentation plus one test on `styles.css`, and a dedicated page with CSS modules fits cleanly.
 - **Update (fourth pass):** section 13 investigates building the curated list from a Spotify playlist of single tracks, by tracing each track back to its album. Verdict: feasible and the most efficient of the options. It also surfaced a possible problem with the existing genre lookup (finding 25).
 - **Update (third pass):** section 12 investigates whether a user could curate their own album list instead of relying on Spotify or scrobbles. Short answer: not today, but the app has most of the building blocks.
 - **Update (second pass):** the two original reference files (the brother's product spec and HTML mockup) have been added to `Chris/referencejukebox/` and compared against the implementation. See **sections 10 and 11**. That comparison also corrected a few statements in section 6, which are marked "(revised)".
@@ -604,3 +605,100 @@ According to search summaries (unverified; the official pages could not be read 
 6. **Should imported albums be removable one by one**, and should removing one stop the live link from re-adding it?
 
 None of this was built or changed. Any build would go through the planner agent for approval first.
+
+---
+
+## 14. Investigation: design-standard exceptions and a dedicated Jukebox tab
+
+**Questions:** (1) Can the design standards be relaxed for the Jukebox? (2) Can the Jukebox have its own tab with different rules?
+
+**Short answer:** yes to both. Nothing technical blocks it, and the repo already has one exception. Making it a separate page is the cleanest way to do it, because the exception then has a clear boundary.
+
+### 14.1 What the "rules" actually are
+
+| Layer | What it is | What enforces it |
+|---|---|---|
+| `DESIGN.md` | Written rules: Flat-By-Default (no shadows or gradients), One Voice (approved colour tokens, accent used sparingly), segmented tabs, outline icons, 0.5 px borders. | Documentation only. Agents and reviewers are told to follow it. |
+| `AGENTS.md` | Repeats the key rules and **names one protected exception**: `RetroJukebox.jsx` and `RetroJukebox.module.css`. | Process only. The planner and implementation agents read it. |
+| `frontend/src/cardConsistency.test.js` | Reads `src/styles.css` and fails if it contains gradients or any box-shadow other than `none` (or a hairline outline). | **An automated test, but only on that one file.** |
+| `frontend/src/settingsFormTypography.test.js` | Checks form styling in `styles.css`. | Automated, same scope. |
+| ESLint (`eslint.config.js`) | JavaScript rules only. | No CSS or design rules. There is no stylelint. |
+
+**What this means:** the rules are a written convention plus a test on the shared stylesheet. A CSS module such as `RetroJukebox.module.css` is not scanned, which is exactly how the current exception passes CI. A new Jukebox page with its own CSS module would pass too, with no test changes.
+
+### 14.2 Can exceptions be made? Yes, and how
+
+An exception is a documented decision, not a code change. To do it properly:
+
+1. **Record it in `DESIGN.md`.** Add a "Jukebox exception" section stating the scope (the route and files), what is allowed (gradients, shadows, its own colour palette, custom animation, decorative imagery), and what is still required (see 14.4).
+2. **Extend the protected-file note in `AGENTS.md`.** Today it names two files. It should name the whole Jukebox page and its CSS, so that theme, accent or dark-mode work does not restyle them (the same reason the current exception exists).
+3. **Keep the shared stylesheet clean.** Put all Jukebox styling in CSS modules (class names are scoped, so nothing leaks into other pages). Do not add Jukebox rules to `styles.css`, which would break the two tests above.
+4. **Add a small guard test** that the Jukebox's exempt CSS is not in `styles.css`, so the exception cannot creep.
+5. **Update `agents/page_specs.md`**, which currently says the header links to six pages and has no Jukebox entry.
+
+**Who decides:** this repo is a fork, so the fork owner can set its own rules. If changes are ever meant to go back to the original maintainer, they would need to accept the `DESIGN.md` and `AGENTS.md` wording changes. `HANDOVER.md` also says the maintainer's standing process (plan, approval, implementation) applies to any change.
+
+### 14.3 A dedicated Jukebox tab
+
+"Tab" can mean two things here; the first is what I assume you mean.
+
+| Meaning | Fit |
+|---|---|
+| **A top-level navigation entry with its own page** (like Overview or Set Lists) | **Recommended.** A page gives a natural boundary for different rules. |
+| A tab inside an existing page (Settings and Reports use tabs) | Possible but not suitable. The Jukebox would still sit inside a flat page, and a cabinet with a claw does not fit a small tab panel. |
+
+**What a dedicated page involves:**
+
+| Piece | Detail |
+|---|---|
+| **Route** | Add a route in `frontend/src/App.jsx` inside `Layout`, so it keeps the shared header and footer. **The path must not start with `/jukebox`**, because nginx and the Vite dev server send those paths to the API, which would break refreshes and direct links (see section 11, constraint 3). Use, for example, `/album-jukebox`. The API routes can stay at `/jukebox/...`. |
+| **Nav link** | Add one entry to `NAV_LINKS` in `HeaderNav.jsx` (currently six: Overview, Library, Reports, Set Lists, Profile, Connect). Seven fits on desktop; on mobile the links already collapse into a menu. `HeaderNav.test.jsx` lists the expected links and needs the new one. |
+| **Width** | `.app-shell` is capped at 1180 px, which fits the mockup's 1100 px two-column layout, so the shared shell needs no change. |
+| **Header clash** | The page header stays flat and the page below it can be as decorative as wanted. Giving the Jukebox a self-contained "stage" panel (its own background, border and padding) keeps the join clean. |
+| **Overview** | Keep a **compact, flat teaser** on Overview (Album of the Day and a link), which complies with the flat rules. The full Jukebox lives on its own page. |
+| **Skins** | With a page that has its own rules, the Flat/Arcade toggle is no longer needed for design reasons. Decide whether to keep Flat as an accessible, lighter alternative or make the page arcade-only. |
+| **Code** | A new page component (for example `AlbumJukeboxPage.jsx`) uses the existing `useJukeboxEngine`, which does not change. |
+
+### 14.4 What an exception should *not* waive
+
+Exceptions are about **appearance**. These should stay mandatory on the Jukebox page:
+
+- **Accessibility:** real buttons, visible focus, 44 px touch targets, `aria-pressed` on chips, a polite live region for the count, focus moved to the album title after a pick, decorative parts hidden from screen readers (reference spec §13). Colour contrast must still pass.
+- **Reduced motion:** the claw and spin animations must be skipped when the user asks for it (reference spec §10). The app already added this care in v0.11.10.
+- **Responsive:** it must work at phone width (the reference spec was designed at 375 px).
+- **No leakage:** nothing in the page's styles may affect any other page.
+- **Security and privacy rules** (authentication, blocks, input validation) are not design rules and are unaffected.
+
+### 14.5 Theme, dark mode and accent colour
+
+- The mockup is a **light-theme** design with a fixed palette (coral, mint, amber, pastel cabinet). The app has light, dark and system themes and eight accent colours that change `--color-primary`.
+- **Recommended:** the Jukebox page ignores the accent colour (as the Retro skin does today) and uses its own fixed palette inside its stage panel, so it looks the same in light and dark mode. The surrounding page stays themed.
+- A dark-mode variant of the cabinet is possible but is extra design work. It would not be needed for a faithful replica.
+- The "One Voice Rule" (accent used for no more than 5% of a screen) would be explicitly waived inside the stage panel only.
+
+### 14.6 Risks and trade-offs
+
+| Risk | Mitigation |
+|---|---|
+| Exception creep (other pages copying the Jukebox look) | Name the exact route and files in `DESIGN.md`, and add the guard test (14.2). |
+| The page feels disconnected from the rest of the app | Keep the shared header, footer and typography, and confine the decoration to one stage panel. |
+| A bigger stylesheet loads on every page | The page's CSS module is small (the mockup's CSS is about 340 lines). If it grows, load the page lazily (`React.lazy`) so other pages do not download it. |
+| A second thing to maintain in two skins | If the page is arcade-only, there is only one skin on the page, and the flat teaser on Overview is tiny. |
+| Mobile menu gets longer | One extra item; acceptable. |
+
+### 14.7 Effect on the earlier sections
+
+- It removes constraints 2, 4 and 5 from section 11 (the shadow and gradient ban, the card layout and the protected-file concern), leaving the data constraints (mood, play counts, covers, favourites) and the nginx path rule.
+- It makes **option C** in section 11.3 (dedicated page plus a compact Overview teaser) the natural choice, and removes the main reason for **options D and E**.
+- The curated list (section 12) and playlist import (section 13) would live naturally on this page, for example in a "My albums" panel, instead of being squeezed into Settings.
+
+### 14.8 Decisions needed
+
+1. **Confirm the page approach:** a new nav entry and route (and a flat teaser on Overview)?
+2. **Path and label:** for example `/album-jukebox` with the label "Jukebox"?
+3. **One skin or two?** Arcade-only on the page, or keep a flat alternative?
+4. **Scope of the exception:** only the stage panel, or the whole page including its headings and controls?
+5. **Dark mode:** fixed light cabinet on a dark page (simplest), or a dark variant?
+6. **Upstream:** will this fork's changes ever go back to the original maintainer? If so, the wording changes to `DESIGN.md` and `AGENTS.md` need their agreement.
+
+None of this was changed. Any build would go through the planner agent for approval first, and the `DESIGN.md` and `AGENTS.md` wording changes should be part of that plan.
