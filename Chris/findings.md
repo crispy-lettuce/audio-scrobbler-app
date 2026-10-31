@@ -4,6 +4,7 @@ Orientation review of the Jukebox feature, written 2026-10-31.
 
 - **Scope:** read-only code review. No application code was changed.
 - **Sources read:** `HANDOVER.md`, `AGENTS.md`, `DESIGN.md`, the Jukebox spec / plan / differential review in `docs/superpowers/`, and all the code listed in section 3.
+- **Update (third pass):** section 12 investigates whether a user could curate their own album list instead of relying on Spotify or scrobbles. Short answer: not today, but the app has most of the building blocks.
 - **Update (second pass):** the two original reference files (the brother's product spec and HTML mockup) have been added to `Chris/referencejukebox/` and compared against the implementation. See **sections 10 and 11**. That comparison also corrected a few statements in section 6, which are marked "(revised)".
 - **Tests:** not run. The Python and Node dependencies are not installed in this environment (`pytest` and `node_modules` are missing). The test status quoted in section 7 comes from the earlier review document, not from me.
 
@@ -186,6 +187,7 @@ The spec (`docs/superpowers/specs/2026-10-30-album-jukebox-design.md`) is still 
 
 22. **"Open in Spotify" is live before anything is picked.** With no pick, `spotifyLink` is `"#"`, but the link still has `target="_blank"` and an `onClick` that commits the session. Clicking it opens a blank tab on the same page. The mockup never has this problem because the album of the day is always present, so the link is always valid. Affects both skins.
 23. **Double-clicking Lucky Dip can bypass the roll limit.** `handleRoll` in both skins checks `busy` and `canRoll`, but not `spinning`. `busy` is never set to true anywhere, so the button stays enabled during the 450 ms (Flat) or 600 ms (Retro) delay. Two quick clicks each schedule a pick. Both closures were created while `sessionActive` was still false, so both take the "start a new session" path and reset the rolls to 3 instead of spending one. The original spec (§7.2) calls out exactly this loophole and says it must not be possible.
+24. **The Jukebox ignores the user's blocks.** `AGENTS.md` says to exclude blocked items (`not_blocked_clause`), and the Library lets users block an artist, album or track (`blocked_items`). `backend/app/api/jukebox.py` never reads that table. In archive mode, an album or artist the user has blocked can still be picked, and in Spotify-saved mode a blocked album still appears. (Found during the curation investigation, section 12.)
 
 ---
 
@@ -339,3 +341,126 @@ Each option respects the existing rules (worker for Spotify calls, JWT-protected
 6. Is a rack of a capped number of tiles acceptable for large libraries?
 
 Any of these would go through the planner agent for approval first, as `AGENTS.md` requires.
+
+---
+
+## 12. Investigation: can a user manually curate their own album list?
+
+**Question:** instead of relying on Spotify saved albums or the scrobble archive, could a user build the Jukebox catalogue by hand?
+
+**Short answer:**
+
+- **Today: no.** There is no way for a user to add, remove or edit a Jukebox album.
+- **Feasible: yes.** The app already has the tables, patterns and screens to support it. It needs one migration, a few user-facing routes and some UI. No architectural rule stands in the way, though a few rules shape how the work should be done.
+
+### 12.1 What exists today (evidence)
+
+| Question | Finding |
+|---|---|
+| Can a user write to `saved_albums`? | **No.** The only code that writes to it is `upsert_saved_albums`, reached through `POST /spotify/internal/saved-albums`, which needs the worker token. `backend/app/api/jukebox.py` has only three routes: `GET /albums`, `GET /daily` and `POST /record-pick`. `record-pick` only updates `last_picked_at` on an existing row. |
+| Is there a way to tell a hand-made row from a synced one? | **No.** `saved_albums` has no `source`, `is_manual` or similar column. |
+| Can the user choose a "manual" source? | **No.** `jukebox_source` is limited to `spotify_saved` or `library_archive`, both by a database CHECK constraint (migration 0028) and by validation in `preferences_service.py`. The Settings dropdown has two options. |
+| Does the catalogue ever fall back silently? | **Yes.** If the user has no saved albums, the API switches to the archive whatever the setting says. An empty curated list would be swapped for scrobbles unless that rule is changed. |
+| Are there lists, tags or "favourites" for albums? | **No.** No table models a user-built album list. `liked_tracks` is a read-only mirror of Spotify likes, and `LikedHeart` in the Library only displays state. |
+| Can the user save an album to Spotify from this app? | **No.** The requested Spotify scopes include `user-library-read` but not `user-library-modify`. |
+| Can the user hide an album from the Jukebox? | **Not directly.** The Library's Block action is the nearest thing, but the Jukebox ignores blocks (finding 24). |
+
+### 12.2 What partly works today
+
+1. **Curate inside Spotify.** Saving an album in Spotify makes the worker sync add it to the Jukebox within a day or so. This is "manual curation" in effect, but it only works one way: the sync never deletes (finding 11), so un-saving an album in Spotify does not remove it. Albums that are not on Spotify cannot be added at all.
+2. **Treat the archive as a shortlist.** Not practical. The archive is the user's top 100 by plays and cannot be edited.
+3. **Insert rows directly into the database.** Technically possible, because a hand-written row with a made-up `spotify_album_id` would survive the sync (the sync only matches on real Spotify IDs). It is not a supported route: there is no UI, no validation and no way to tell the rows apart later. It should not be recommended to users.
+
+### 12.3 Building blocks the app already has
+
+| Need | Existing piece | Where |
+|---|---|---|
+| Pick albums you already listen to | Library "Albums scrobbled" list. Each entry carries album name, artist, artwork and play count, and the list already supports a selection mode with a bulk action bar. | `LibraryRankList.jsx`, `LibraryPage.jsx` |
+| Per-item actions menu | `EntryMenu` already offers Delete / Block / Clear Artwork on each Library entry. An "Add to Jukebox" item would sit naturally here. | `EntryMenu.jsx` |
+| Manual data entry with validation and duplicate checks | `POST /setlists/manual` (gigs typed in by hand). A good model for the route, schema and errors. | `api/setlists.py`, `setlist_attendance_service.py` |
+| Look up album metadata without Spotify | Deezer and iTunes search helpers, already used by imports and artwork backfill. | `processed_import_service.py`, `setlist_artwork_service.py` |
+| Accept pasted Spotify links or IDs | `normalize_spotify_uri` and `_extract_playlist_id`, plus the Rediscover feature's raw-ID handling. | `spotify_playlist_service.py` |
+| Enrich records later, off the request path | The worker enrichment pattern (genre cache: pending list, worker job, cache table). The worker can also get a client-credentials token. | `worker/app.py`, `spotify_ingestion.py` |
+| Read a Spotify playlist | `get_playlist_info`, `get_user_playlists`, with the playlist-read scopes already granted. | `spotify_playlist_service.py` |
+| Per-user settings | The "Album Jukebox" section already exists in Settings. | `SettingsPage.jsx` |
+
+### 12.4 Data-model options
+
+All options need a **new** Alembic migration (0029 or later). Migration 0028 is already applied and must not be edited.
+
+| Option | Description | Pros | Cons |
+|---|---|---|---|
+| **A. Add `source` to `saved_albums`** (recommended) | New column, for example `source` = `spotify` or `manual`. Manual rows use a made-up ID such as `manual-<uuid>` (the column is a required string, and the unique key is `(user_id, spotify_album_id)`). | Smallest change. The API, engine and both skins already read this table. Synced and hand-made albums can mix. | The sync's upsert must not overwrite manual edits. The sync must never delete manual rows when removal support is added. |
+| **B. Separate `jukebox_albums` table** | A dedicated curated table, with a reference back to Spotify only if known. | Clean separation. No interaction with the sync. | Two sources to merge in the API. Duplicates when the same album is both synced and curated. |
+| **C. Exclusion flag only** | Add `hidden` to saved and archive albums, so the user curates by removing. | Very small. Works with every source. | Cannot add albums that are not already present. Does not answer the question on its own. |
+| **D. Named lists** | A `jukebox_lists` table with memberships ("Sunday morning", "Road trip"). | Most flexible. | Over-built for now. The original spec has one library and no lists. |
+
+**Catalogue selection.** The single-choice `jukebox_source` setting would need to change. It would be better as "which sources to include" (Spotify saved / scrobbled archive / my list), so a user can have only their own list, or their list plus Spotify. The CHECK constraint and `preferences_service.py` validation must change together, and the "empty means fall back to archive" rule must be dropped for a curated-only choice, so that an empty list shows an empty state instead.
+
+### 12.5 Ways a user could add albums
+
+| Method | Metadata you get | Effort | Notes |
+|---|---|---|---|
+| **From the Library** (single via `EntryMenu`, bulk via the selection bar) | Album, artist, artwork, play count. **No** year, genre, length, label or Spotify URL. | Low | Natural, and works for every source (Spotify, Apple Music, YouTube, file imports). Albums with no year or length drop out of the decade and length filters, and a missing duration currently counts as "short" (engine, section 5). |
+| **Type it in** (artist, album, optional year, genre, length) | Whatever the user types | Low | Same pattern as manual gigs. Tedious for many albums. |
+| **Paste a Spotify album link or ID** | Full metadata once resolved | Medium | A background job fills in the details (see below). Gives the real Spotify link. |
+| **Search and add** | Full metadata | Medium to high | See the "which search" note below. |
+| **Import from a Spotify playlist** (user curates a playlist, the app takes its albums) | Full metadata | Medium | Lets curation happen in Spotify. Uses scopes already granted. |
+| **Upload a list** (CSV or plain text of artist and album) | Names only until enriched | Medium | Fits the existing file-import style. |
+
+**Which search for lookups?**
+
+- **Spotify.** The backend has never called Spotify's search or album endpoints. `AGENTS.md` forbids inline Spotify calls in a request, so a Spotify lookup should be queued and done by the worker, like genres. That makes "add" asynchronous: the album appears straight away with basic details and gains year, genre, length, label and Spotify URL later. Note that parts of the app already call Spotify from request handlers (for example `/tools/scope-creep/playlists` calls `get_user_playlists`), so the rule is not applied uniformly today.
+- **Deezer or iTunes.** Already used server-side for imports and carry no Spotify rate-limit risk. They give year, artwork and often genre, but they do **not** give a Spotify link, so "Open in Spotify" would keep using the search-URL fallback. Deezer's album detail is believed to include track-count, duration and label; this should be checked against the live API before relying on it.
+- Spotify has been tightening API access for newer apps. Confirm the current limits for album search and album lookup on the app's developer-mode registration before committing to a Spotify-based lookup.
+
+### 12.6 Backend and UI shape (sketch)
+
+**Routes** (all JWT-protected, scoped by `user_id`, with Pydantic schemas):
+
+- `POST /jukebox/albums`: add one album, or a list for bulk add. Reject duplicates.
+- `PATCH /jukebox/albums/{id}`: edit manual fields.
+- `DELETE /jukebox/albums/{id}`: remove. For synced rows, "remove" would need a `hidden` flag, since the next sync would add the row back.
+
+**UI:**
+
+- "Add to Jukebox" in the Library `EntryMenu` and the bulk bar.
+- A "My list" manager (add by typing or pasting, edit, remove) inside the existing Settings "Album Jukebox" section, or behind a "Manage" button on the card.
+- The catalogue source setting becomes a set of toggles.
+
+**Rules to respect:**
+
+| Rule | Why it matters here |
+|---|---|
+| **Validate every URL field.** `spotify_url` is rendered straight into an `href`, and `artwork_url` would be rendered as an image. At present only the worker sets them. Once users can type them, a `javascript:` or other hostile scheme becomes possible. Allow only `https://open.spotify.com/…` for links and `https://` for images. | Security (untrusted input) |
+| Limit lengths to the column sizes (255), cap the number of albums per user (for example 2,000), and treat text as plain text only. | Input validation, abuse |
+| Apply the user's blocks (finding 24) to every source, including the curated list. | Access control rule |
+| Never rewrite migration 0028. Add a new migration with an upgrade and downgrade. Test against a real throwaway Postgres, because SQLite hides dialect failures (see `HANDOVER.md`). | Migration rules |
+| Make the sync **never overwrite or delete** manual rows, and decide what happens when the same album is later saved in Spotify (suggested: keep it as manual, but merge in the Spotify ID and metadata). | Data safety |
+| **Back up and export.** Synced albums can be rebuilt from Spotify. A hand-made list cannot. The pg_dump backups cover it, but the Settings export (`GET /import/export`) covers listening history only. Consider including the curated list. | Data loss |
+| Update the changelog, bump the version, and add user guide and FAQ entries (all required by `AGENTS.md`). Also add the feature to `agents/page_specs.md`. | Process |
+| Go through the planner agent for approval before any build. | `AGENTS.md` process |
+
+### 12.7 How this relates to the reference spec
+
+- The original spec's data requirement (§12) is "every **favourited album, from any source**". The app has no such list (section 11, constraint 7). A user-curated list is the most direct way to meet that requirement, and it is the only route for albums that are not on Spotify.
+- It also gives a home for **mood** (section 11, constraint 1): a manually added album could carry a user-chosen mood, which removes the need for a separate tagging feature.
+- The spec's out-of-scope list (§14) says "editing favourites or metadata from the Jukebox". A curated list is therefore a deliberate extension, not part of the original brief. It should be recorded as a product decision.
+
+### 12.8 Suggested phasing
+
+1. **Foundation.** Migration adding `source` (and a `hidden` flag), the catalogue source becomes multi-select, the empty-state fix, and block handling. Routes to add, edit and remove manual albums, with URL validation.
+2. **Easy entry.** "Add to Jukebox" from the Library (single and bulk), plus typing an album in by hand. This already makes curation usable.
+3. **Enrichment.** A worker job (or Deezer / iTunes lookup) that fills in year, genre, length, label, artwork and the Spotify link for albums added with names only.
+4. **Bulk and extras.** Paste a Spotify link, import from a Spotify playlist, upload a list, optional mood, and include the list in the export.
+
+### 12.9 Decisions needed
+
+1. **Replace or combine?** Should a curated list replace the other sources, or be added to them?
+2. **Where does curation happen?** From the Library, from a manager on the Jukebox, or both?
+3. **Which lookup?** Spotify (queued, slower, gives the real link) or Deezer / iTunes (simple, no Spotify link)?
+4. **Removing synced albums.** Should "remove" hide a Spotify album for good (the flag), or should the sync be made to mirror Spotify (finding 11)?
+5. **Mood.** Include a user-chosen mood on curated albums? (Reference spec open question 3.)
+6. **Export.** Should the curated list be included in the data export?
+
+None of these were built or changed as part of this investigation. Any build would go through the planner agent for approval first.
